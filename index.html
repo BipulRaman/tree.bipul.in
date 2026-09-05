@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Family Tree Builder</title>
+<style>
+  :root {
+    --bg: #f7f8fb;
+    --bg-grid: #eef1f6;
+    --panel: #ffffff;
+    --panel-2: #f1f3f8;
+    --border: #e3e6ee;
+    --border-strong: #cdd2dd;
+    --text: #1f2937;
+    --text-soft: #475569;
+    --muted: #8b94a7;
+    --accent: #4f46e5;
+    --accent-soft: #eef0ff;
+    --accent-2: #6366f1;
+    --success: #059669;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --warn: #d97706;
+    --male: #3b82f6;
+    --female: #ec4899;
+    --other: #64748b;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.06), 0 1px 1px rgba(15,23,42,0.04);
+    --shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04);
+    --shadow-lg: 0 12px 32px rgba(15,23,42,0.12), 0 4px 8px rgba(15,23,42,0.06);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  body { display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+  }
+  .brand {
+    font-size: 15px; font-weight: 600; margin-right: 12px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text);
+  }
+  .brand .logo {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: var(--shadow-sm);
+  }
+  .brand .logo svg { width: 18px; height: 18px; }
+  .divider { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+
+  .btn {
+    background: var(--panel); color: var(--text-soft);
+    border: 1px solid var(--border);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.12s ease;
+    font-family: inherit; font-weight: 500;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn:hover { background: var(--panel-2); border-color: var(--border-strong); color: var(--text); }
+  .btn:active { transform: translateY(1px); box-shadow: none; }
+  .btn.primary {
+    background: linear-gradient(180deg, #6366f1, #4f46e5);
+    border-color: #4338ca; color: white;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.2) inset, var(--shadow-sm);
+  }
+  .btn.primary:hover { background: linear-gradient(180deg, #7375f5, #5750e7); color: white; }
+  .btn.danger { color: var(--danger); border-color: #fecaca; background: var(--panel); }
+  .btn.danger:hover { background: var(--danger); color: white; border-color: var(--danger); }
+  .btn.ghost-danger { color: var(--text-soft); background: var(--panel); border-color: var(--border); }
+  .btn.ghost-danger:hover { color: var(--danger); background: var(--danger-soft); border-color: #fecaca; }
+  .btn.ghost-danger:hover svg { color: var(--danger); }
+  .btn.ghost-danger { color: var(--muted); background: var(--panel); border-color: var(--border); }
+  .btn.ghost-danger:hover { color: var(--danger); background: var(--danger-soft); border-color: #fecaca; }
+  .btn.ghost-danger:hover svg { color: var(--danger); }
+  .btn .ico { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; }
+  .btn .ico svg { width: 15px; height: 15px; }
+  .spacer { flex: 1; }
+  input[type=file] { display: none; }
+
+  main { flex: 1; display: flex; overflow: hidden; }
+
+  #canvasWrap {
+    flex: 1; overflow: hidden; position: relative;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  #canvas { display: block; position: absolute; top: 0; left: 0; cursor: grab; }
+  #canvas.grabbing { cursor: grabbing; }
+  #canvas.linking { cursor: crosshair; }
+
+  .floating {
+    position: absolute;
+    background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    z-index: 5;
+  }
+  #zoomControls {
+    bottom: 16px; left: 16px; padding: 4px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  #zoomControls button {
+    width: 32px; height: 32px; border: none; background: transparent;
+    color: var(--text-soft); cursor: pointer; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+  }
+  #zoomControls button svg { width: 16px; height: 16px; }
+  #zoomControls button:hover { background: var(--panel-2); color: var(--text); }
+  #zoomLevel { font-size: 10px; color: var(--muted); text-align: center; padding: 2px 0; font-weight: 600; }
+
+  #statusBar {
+    bottom: 16px; right: 16px;
+    padding: 7px 14px; font-size: 12px; color: var(--text-soft); font-weight: 500;
+  }
+  #statusBar .dot { color: var(--muted); margin: 0 6px; }
+
+  #linkBanner {
+    top: 16px; left: 50%; transform: translateX(-50%);
+    padding: 10px 18px; font-size: 13px; color: var(--text);
+    display: none; align-items: center; gap: 10px;
+    border-color: var(--accent); background: var(--accent-soft);
+  }
+  #linkBanner.show { display: flex; }
+  #linkBanner button { background: transparent; border: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; }
+
+  aside {
+    width: 300px; background: var(--panel); padding: 18px;
+    overflow-y: auto; border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  aside h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    margin: 0; color: var(--muted); font-weight: 700;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field label {
+    font-size: 11px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .field input, .field select, .field textarea {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 11px; font-size: 13px; font-family: inherit;
+    transition: border-color 0.12s, box-shadow 0.12s;
+    min-width: 0; width: 100%;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field input[type=range] { padding: 0; accent-color: var(--accent); }
+  .link-btn { background: none; border: none; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; text-transform: none; letter-spacing: 0; font-family: inherit; }
+  .link-btn:hover { text-decoration: underline; }
+  .row { display: flex; gap: 8px; }
+
+  /* Inspector — person header */
+  .person-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px; border-radius: 12px;
+    background: linear-gradient(135deg, #f4f5fb, #fafbff);
+    border: 1px solid var(--border);
+  }
+  .person-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: white;
+    box-shadow: var(--shadow-sm);
+  }
+  .person-avatar[data-gender=male]   { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .person-avatar[data-gender=female] { background: linear-gradient(135deg, #ec4899, #db2777); }
+  .person-avatar[data-gender=other]  { background: linear-gradient(135deg, #64748b, #475569); }
+  .person-avatar svg { width: 22px; height: 22px; }
+  .person-meta { min-width: 0; flex: 1; }
+  .person-name { font-weight: 600; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .person-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .person-sub em { color: var(--muted); opacity: 0.7; font-style: normal; }
+
+  /* Quick actions */
+  .quick-actions {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  }
+  .qa {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 9px 4px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--text-soft); cursor: pointer; font-size: 11px; font-weight: 500;
+    font-family: inherit; transition: all 0.12s;
+  }
+  .qa svg { width: 16px; height: 16px; }
+  .qa:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .qa:active { transform: translateY(0); }
+
+  /* Section grouping */
+  .section { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+  .section h2 { margin: 0 0 -2px; }
+
+  /* Segmented control */
+  .segmented {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+    padding: 3px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .segmented button {
+    border: none; background: transparent; cursor: pointer;
+    padding: 6px 4px; border-radius: 6px;
+    font-size: 12px; font-weight: 500; color: var(--text-soft);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    font-family: inherit; transition: all 0.12s;
+  }
+  .segmented button:hover { color: var(--text); }
+  .segmented button.on {
+    background: var(--panel); color: var(--text); font-weight: 600;
+    box-shadow: var(--shadow-sm);
+  }
+  .segmented .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-male   { background: #3b82f6; }
+  .dot-female { background: #ec4899; }
+  .dot-other  { background: #64748b; }
+
+  /* Width control */
+  .width-control {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .wc-header { display: flex; align-items: center; justify-content: space-between; }
+  .wc-label { font-size: 12px; font-weight: 600; color: var(--text-soft); }
+  .stepper {
+    display: inline-flex; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 7px;
+    overflow: hidden;
+  }
+  .stepper button {
+    width: 24px; height: 24px; border: none; background: transparent;
+    color: var(--text-soft); cursor: pointer; font-size: 14px; line-height: 1;
+    font-family: inherit; transition: background 0.12s;
+  }
+  .stepper button:hover { background: var(--accent-soft); color: var(--accent); }
+  .stepper span {
+    min-width: 42px; text-align: center;
+    font-size: 12px; font-weight: 600; color: var(--text);
+    font-family: ui-monospace, monospace;
+    border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+    padding: 3px 0;
+  }
+  .width-control input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 4px; background: var(--border);
+    border-radius: 2px; outline: none; padding: 0; margin: 4px 0 0;
+  }
+  .width-control input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    border: 2px solid white; box-shadow: var(--shadow-sm);
+  }
+  .width-control input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    border: 2px solid white; box-shadow: var(--shadow-sm);
+  }
+  .wc-ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .wc-fit {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--accent); font-size: 12px; font-weight: 600;
+    padding: 6px 10px; border-radius: 7px; cursor: pointer;
+    font-family: inherit; transition: all 0.12s;
+  }
+  .wc-fit svg { width: 14px; height: 14px; }
+  .wc-fit:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+  /* Value chip (e.g. width px) */
+  .value-chip {
+    background: var(--panel-2); color: var(--text-soft);
+    padding: 1px 7px; border-radius: 10px;
+    font-size: 10px; font-weight: 600;
+    font-family: ui-monospace, monospace;
+    margin-left: 4px;
+    text-transform: none; letter-spacing: 0;
+  }
+  .row > * { flex: 1; }
+  .empty-state {
+    color: var(--muted); font-size: 13px; line-height: 1.6;
+    padding: 20px 0; text-align: center;
+  }
+  .empty-state .icon { display: block; margin: 0 auto 10px; color: var(--muted); opacity: 0.7; }
+  .empty-state .icon svg { width: 40px; height: 40px; }
+  .kbd {
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 4px; font-family: ui-monospace, monospace;
+    font-size: 11px; color: var(--text-soft);
+  }
+  .help-list { font-size: 12px; color: var(--text-soft); line-height: 2; padding: 0; margin: 0; list-style: none; }
+
+  /* Context menu */
+  .ctx-menu {
+    position: fixed; min-width: 218px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 5px; z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    font-size: 13px;
+    animation: ctxIn 0.12s ease-out;
+  }
+  @keyframes ctxIn { from { opacity: 0; transform: scale(0.96) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .ctx-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 6px; cursor: pointer;
+    color: var(--text);
+  }
+  .ctx-item:hover { background: var(--accent-soft); color: var(--accent); }
+  .ctx-item.danger { color: var(--danger); }
+  .ctx-item.danger:hover { background: var(--danger-soft); color: var(--danger); }
+  .ctx-item .ci { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+  .ctx-item .ci svg { width: 16px; height: 16px; }
+  .ctx-item:hover .ci { color: var(--accent); }
+  .ctx-item.danger .ci { color: var(--danger); }
+  .ctx-item .ck { margin-left: auto; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .ctx-item:hover .ck { color: var(--accent); }
+  .ctx-sep { height: 1px; background: var(--border); margin: 4px 4px; }
+  .ctx-header {
+    padding: 8px 10px 6px;
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: white;
+    padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    box-shadow: var(--shadow-lg);
+    z-index: 2000; font-weight: 500;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  #toast.success { background: var(--success); }
+  #toast.error { background: var(--danger); }
+
+  /* Scrollbar */
+  aside::-webkit-scrollbar { width: 8px; }
+  aside::-webkit-scrollbar-track { background: transparent; }
+  aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  aside::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="logo">🌳</span> Family Tree</div>
+  <button class="btn primary" id="addBtn"><span class="ico">＋</span> Add Person</button>
+  <button class="btn" id="autoLayoutBtn"><span class="ico">⊞</span> Auto Layout</button>
+  <button class="btn" id="fitBtn"><span class="ico">⛶</span> Fit View</button>
+  <div class="spacer"></div>
+  <button class="btn" id="saveJson"><span class="ico">💾</span> Save</button>
+  <label class="btn" for="loadJson"><span class="ico">📂</span> Open</label>
+  <input type="file" id="loadJson" accept="application/json">
+  <button class="btn" id="savePng"><span class="ico">🖼</span> Export PNG</button>
+  <div class="divider"></div>
+  <button class="btn ghost-danger" id="clearBtn" title="Clear the entire tree"><span class="ico" data-icon="trash"></span> Clear</button>
+</header>
+
+<main>
+  <div id="canvasWrap">
+    <canvas id="canvas"></canvas>
+    <div class="floating" id="zoomControls">
+      <button id="zoomIn" title="Zoom in" data-icon="plus"></button>
+      <div id="zoomLevel">100%</div>
+      <button id="zoomOut" title="Zoom out" data-icon="minus"></button>
+      <button id="zoomReset" title="Reset zoom" data-icon="target"></button>
+    </div>
+    <div class="floating" id="statusBar">0 people<span class="dot">·</span>0 links</div>
+    <div class="floating" id="linkBanner">
+      <span id="linkBannerText"></span>
+      <button id="linkCancelBtn">Cancel (Esc)</button>
+    </div>
+  </div>
+
+  <aside>
+    <h2>Inspector</h2>
+    <div id="editor"></div>
+  </aside>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ============ SVG ICONS (Lucide-style) ============
+const ICONS = {
+  tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2.5" fill="currentColor" stroke="none"/><circle cx="5.5" cy="19" r="2.5" fill="currentColor" stroke="none"/><circle cx="18.5" cy="19" r="2.5" fill="currentColor" stroke="none"/><path d="M12 7v4M5.5 16.5v-1a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3v1"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  layout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  maximize: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/></svg>',
+  save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  child: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M12 12v3"/></svg>',
+  parent: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/><path d="M9 7c0-1.5.7-3 3-3"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  scissors: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+};
+function mountIcons(root = document) {
+  root.querySelectorAll('[data-icon]').forEach(el => {
+    const name = el.getAttribute('data-icon');
+    if (!name || !ICONS[name]) return;
+    if (el.firstChild && el.firstChild.nodeName === 'svg') return;
+    el.innerHTML = ICONS[name];
+  });
+}
+
+const canvas = document.getElementById('canvas');
+const wrap = document.getElementById('canvasWrap');
+const ctx = canvas.getContext('2d');
+const editor = document.getElementById('editor');
+
+const NODE_W = 180;
+const NW_MIN = 140, NW_MAX = 360;
+function nw(p) { return Math.max(NW_MIN, Math.min(NW_MAX, p && p.width ? p.width : NODE_W)); }
+
+// ============ AUTOSAVE ============
+const STORAGE_KEY = 'familyTree.v1';
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  }, 300);
+}
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.people)) return false;
+    state = Object.assign({ parentLinks: [], spouseLinks: [], nextId: 1 }, data);
+    state.nextId = Math.max(state.nextId || 1, ...state.people.map(p => p.id + 1), 1);
+    return state.people.length > 0;
+  } catch { return false; }
+}
+const NH_BASE = 76;   // card without notes
+const NH_NOTES = 110; // card with notes
+const CARD_R = 14;
+function nh(p) { return p && p.notes ? NH_NOTES : NH_BASE; }
+let state = { people: [], parentLinks: [], spouseLinks: [], nextId: 1 };
+let selectedId = null;
+let hoveredId = null;
+let dragging = null;
+let dragOffset = { x: 0, y: 0 };
+let panning = false;
+let panStart = null;
+let view = { x: 0, y: 0, scale: 1 };
+let linkMode = null;
+let linkFirst = null;
+let editorPersonId = null; // tracks which person is currently in the editor DOM
+
+function findPerson(id) { return state.people.find(p => p.id === id); }
+function colorFor(g) { return g === 'male' ? '#3b82f6' : g === 'female' ? '#ec4899' : '#64748b'; }
+function softColorFor(g) { return g === 'male' ? '#dbeafe' : g === 'female' ? '#fce7f3' : '#e2e8f0'; }
+function escapeHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = wrap.clientWidth * dpr;
+  canvas.height = wrap.clientHeight * dpr;
+  canvas.style.width = wrap.clientWidth + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  render();
+}
+window.addEventListener('resize', resizeCanvas);
+
+function screenToWorld(sx, sy) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: (sx - rect.left - view.x) / view.scale, y: (sy - rect.top - view.y) / view.scale };
+}
+
+function hitTest(wx, wy) {
+  for (let i = state.people.length - 1; i >= 0; i--) {
+    const p = state.people[i];
+    if (wx >= p.x && wx <= p.x + nw(p) && wy >= p.y && wy <= p.y + nh(p)) return p;
+  }
+  return null;
+}
+
+function addPerson(opts = {}) {
+  const p = {
+    id: state.nextId++,
+    name: opts.name || 'New Person',
+    birth: opts.birth || '',
+    death: opts.death || '',
+    gender: opts.gender || 'male',
+    notes: opts.notes || '',
+    x: opts.x ?? (wrap.clientWidth / 2 - NODE_W / 2 - view.x) / view.scale,
+    y: opts.y ?? (wrap.clientHeight / 2 - NH_BASE / 2 - view.y) / view.scale,
+  };
+  state.people.push(p);
+  select(p.id);
+  return p;
+}
+
+function select(id) {
+  if (selectedId === id) { render(); return; }
+  selectedId = id;
+  buildEditor();
+  render();
+}
+
+function deletePerson(id) {
+  state.people = state.people.filter(p => p.id !== id);
+  state.parentLinks = state.parentLinks.filter(l => l.parent !== id && l.child !== id);
+  state.spouseLinks = state.spouseLinks.filter(l => l.a !== id && l.b !== id);
+  if (selectedId === id) { selectedId = null; buildEditor(); }
+  render();
+}
+
+function linkExists(type, a, b) {
+  if (type === 'parent') return state.parentLinks.some(l => l.parent === a && l.child === b);
+  return state.spouseLinks.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a));
+}
+
+function spouseOf(id) {
+  const l = state.spouseLinks.find(l => l.a === id || l.b === id);
+  if (!l) return null;
+  return l.a === id ? l.b : l.a;
+}
+
+// ============ RENDER ============
+function render() {
+  scheduleSave();
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(view.x, view.y);
+  ctx.scale(view.scale, view.scale);
+
+  // spouse links (dashed pink)
+  ctx.strokeStyle = '#ec4899';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  for (const l of state.spouseLinks) {
+    const a = findPerson(l.a), b = findPerson(l.b);
+    if (!a || !b) continue;
+    const x1 = a.x + nw(a) / 2, y1 = a.y + nh(a) / 2;
+    const x2 = b.x + nw(b) / 2, y2 = b.y + nh(b) / 2;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc((x1+x2)/2, (y1+y2)/2, 10, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc((x1+x2)/2, (y1+y2)/2, 10, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#ec4899';
+    ctx.font = '12px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('♥', (x1+x2)/2, (y1+y2)/2 + 1);
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 2;
+  }
+  ctx.setLineDash([]);
+
+  // parent links (smooth bezier-ish via elbow)
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.8;
+  for (const l of state.parentLinks) {
+    const p = findPerson(l.parent), c = findPerson(l.child);
+    if (!p || !c) continue;
+    const x1 = p.x + nw(p) / 2, y1 = p.y + nh(p);
+    const x2 = c.x + nw(c) / 2, y2 = c.y;
+    ctx.beginPath();
+    if (Math.abs(x2 - x1) < 0.5) {
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+    } else {
+      const my = (y1 + y2) / 2;
+      const dir = Math.sign(x2 - x1);
+      const r = Math.min(6, Math.abs(x2 - x1) / 2);
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1, my - r);
+      ctx.quadraticCurveTo(x1, my, x1 + dir * r, my);
+      ctx.lineTo(x2 - dir * r, my);
+      ctx.quadraticCurveTo(x2, my, x2, my + r);
+      ctx.lineTo(x2, y2);
+    }
+    ctx.stroke();
+    // arrow head
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 4, y2 - 6);
+    ctx.lineTo(x2 + 4, y2 - 6);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // link preview
+  if (linkMode && linkFirst) {
+    const f = findPerson(linkFirst);
+    if (f && hoveredId && hoveredId !== linkFirst) {
+      const t = findPerson(hoveredId);
+      ctx.strokeStyle = linkMode === 'spouse' ? '#ec4899' : '#4f46e5';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(f.x + nw(f)/2, f.y + nh(f)/2);
+      ctx.lineTo(t.x + nw(t)/2, t.y + nh(t)/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // nodes
+  for (const p of state.people) {
+    const isSel = p.id === selectedId;
+    const isHover = p.id === hoveredId;
+    const isLinkSrc = p.id === linkFirst;
+    const h = nh(p);
+    const w = nw(p);
+    const accent = colorFor(p.gender);
+
+    // shadow
+    ctx.shadowColor = isSel ? 'rgba(79, 70, 229, 0.22)' : 'rgba(15, 23, 42, 0.10)';
+    ctx.shadowBlur = isSel ? 20 : isHover ? 14 : 8;
+    ctx.shadowOffsetY = isSel ? 8 : 4;
+
+    // card body
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, p.x, p.y, w, h, CARD_R);
+    ctx.fill();
+
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+    // top gender stripe
+    ctx.save();
+    roundRect(ctx, p.x, p.y, w, h, CARD_R);
+    ctx.clip();
+    ctx.fillStyle = accent;
+    ctx.fillRect(p.x, p.y, w, 4);
+    ctx.restore();
+
+    // border
+    if (isSel) { ctx.lineWidth = 2; ctx.strokeStyle = '#4f46e5'; }
+    else if (isLinkSrc) { ctx.lineWidth = 2; ctx.strokeStyle = '#ec4899'; }
+    else if (isHover) { ctx.lineWidth = 1.75; ctx.strokeStyle = '#64748b'; }
+    else { ctx.lineWidth = 1.5; ctx.strokeStyle = '#94a3b8'; }
+    roundRect(ctx, p.x, p.y, w, h, CARD_R);
+    ctx.stroke();
+
+    // name
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '600 14px -apple-system, system-ui';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(truncate(ctx, p.name, w - 32), p.x + 16, p.y + 14);
+
+    // dates
+    const dates = [p.birth, p.death].filter(Boolean).join(' – ');
+    if (dates) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '500 11.5px -apple-system, system-ui';
+      ctx.fillText(dates, p.x + 16, p.y + 36);
+    }
+
+    // notes section (with divider)
+    if (p.notes) {
+      ctx.strokeStyle = '#eef0f6';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p.x + 12, p.y + 62);
+      ctx.lineTo(p.x + w - 12, p.y + 62);
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11.5px -apple-system, system-ui';
+      const lines = wrapLines(ctx, p.notes, w - 28, 2);
+      lines.forEach((line, i) => ctx.fillText(line, p.x + 16, p.y + 72 + i * 15));
+    }
+  }
+
+  ctx.restore();
+  updateStatusBar();
+}
+
+function wrapLines(ctx, text, maxW, maxLines) {
+  const words = String(text || '').split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && cur) {
+      lines.push(cur);
+      cur = w;
+      if (lines.length === maxLines - 1) break;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) {
+    if (lines.length < maxLines) {
+      // possibly truncate last
+      if (ctx.measureText(cur).width > maxW) cur = truncate(ctx, cur, maxW);
+      lines.push(cur);
+    }
+  }
+  // if more words remain, add ellipsis to last
+  if (lines.length === maxLines) {
+    let last = lines[maxLines - 1];
+    while (last.length && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last + '…';
+  }
+  return lines;
+}
+
+function truncate(ctx, text, maxW) {
+  text = String(text || '');
+  if (ctx.measureText(text).width <= maxW) return text;
+  while (text.length && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+  return text + '…';
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function roundRectTop(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h);
+  ctx.closePath();
+}
+
+function updateStatusBar() {
+  const sb = document.getElementById('statusBar');
+  const conns = state.parentLinks.length + state.spouseLinks.length;
+  sb.innerHTML = `${state.people.length} ${state.people.length === 1 ? 'person' : 'people'}<span class="dot">·</span>${conns} ${conns === 1 ? 'link' : 'links'}`;
+  document.getElementById('zoomLevel').textContent = Math.round(view.scale * 100) + '%';
+}
+
+// ============ EDITOR (rebuilt only on selection change to keep focus) ============
+function buildEditor() {
+  const p = findPerson(selectedId);
+  editorPersonId = p ? p.id : null;
+  if (!p) {
+    editor.innerHTML = `
+      <div class="empty-state">
+        <span class="icon" data-icon="user" style="display:inline-flex;justify-content:center;"></span>
+        Select a person to edit their details
+      </div>
+      <h2 style="margin-top:8px">Shortcuts</h2>
+      <ul class="help-list">
+        <li><span class="kbd">Double-click</span> canvas — add person</li>
+        <li><span class="kbd">Right-click</span> — context menu</li>
+        <li><span class="kbd">Drag</span> — move person</li>
+        <li><span class="kbd">Space</span>+drag / middle-click — pan</li>
+        <li><span class="kbd">Scroll</span> — zoom</li>
+        <li><span class="kbd">Del</span> — delete selected</li>
+        <li><span class="kbd">Esc</span> — cancel link</li>
+      </ul>
+    `;
+    mountIcons(editor);
+    return;
+  }
+  editor.innerHTML = `
+    <div class="section">
+      <h2>Identity</h2>
+      <div class="field"><label>Name</label><input id="f_name" value="${escapeHtml(p.name)}" autocomplete="off"></div>
+      <div class="field">
+        <label>Gender</label>
+        <div class="segmented" id="f_gender">
+          <button data-val="male"   class="${p.gender === 'male' ? 'on' : ''}"><span class="dot dot-male"></span>Male</button>
+          <button data-val="female" class="${p.gender === 'female' ? 'on' : ''}"><span class="dot dot-female"></span>Female</button>
+          <button data-val="other"  class="${p.gender === 'other' ? 'on' : ''}"><span class="dot dot-other"></span>Other</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Life</h2>
+      <div class="row">
+        <div class="field"><label>Born</label><input id="f_birth" value="${escapeHtml(p.birth)}" placeholder="1950" autocomplete="off"></div>
+        <div class="field"><label>Died</label><input id="f_death" value="${escapeHtml(p.death)}" placeholder="—" autocomplete="off"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="f_notes" rows="3" placeholder="Add notes…">${escapeHtml(p.notes)}</textarea></div>
+    </div>
+
+    <div class="section">
+      <h2>Appearance</h2>
+      <div class="width-control">
+        <div class="wc-header">
+          <span class="wc-label">Card Width</span>
+          <div class="stepper">
+            <button type="button" id="f_widthDec" aria-label="Decrease">−</button>
+            <span id="f_widthVal">${nw(p)}</span>
+            <button type="button" id="f_widthInc" aria-label="Increase">+</button>
+          </div>
+        </div>
+        <input type="range" id="f_width" min="${NW_MIN}" max="${NW_MAX}" step="5" value="${nw(p)}">
+        <div class="wc-ticks"><span>${NW_MIN}</span><span>${NW_MAX}</span></div>
+        <button type="button" class="wc-fit" id="f_fitWidth"><span data-icon="maximize"></span> Fit to name</button>
+      </div>
+    </div>
+
+    <button class="btn ghost-danger" id="delPersonBtn" style="width:100%; justify-content:center; margin-top:12px;"><span class="ico" data-icon="trash"></span> Delete Person</button>
+  `;
+  for (const k of ['name', 'birth', 'death', 'notes']) {
+    const el = document.getElementById('f_' + k);
+    el.addEventListener('input', () => {
+      const cur = findPerson(editorPersonId); if (!cur) return;
+      cur[k] = el.value;
+      render();
+    });
+  }
+  // segmented gender
+  editor.querySelectorAll('#f_gender button').forEach(b => {
+    b.onclick = () => {
+      const cur = findPerson(editorPersonId); if (!cur) return;
+      cur.gender = b.dataset.val;
+      editor.querySelectorAll('#f_gender button').forEach(x => x.classList.toggle('on', x === b));
+      render();
+    };
+  });
+  // width control
+  const wEl = document.getElementById('f_width');
+  const wVal = document.getElementById('f_widthVal');
+  const setW = (v) => {
+    const cur = findPerson(editorPersonId); if (!cur) return;
+    cur.width = Math.max(NW_MIN, Math.min(NW_MAX, v));
+    wEl.value = nw(cur);
+    wVal.textContent = nw(cur);
+    render();
+  };
+  wEl.addEventListener('input', () => setW(parseInt(wEl.value, 10)));
+  document.getElementById('f_widthDec').onclick = () => setW(nw(findPerson(editorPersonId)) - 10);
+  document.getElementById('f_widthInc').onclick = () => setW(nw(findPerson(editorPersonId)) + 10);
+  document.getElementById('f_fitWidth').onclick = () => {
+    const cur = findPerson(editorPersonId); if (!cur) return;
+    fitWidthToName(cur);
+    wEl.value = nw(cur);
+    wVal.textContent = nw(cur);
+    render();
+  };
+  // quick actions removed
+  document.getElementById('delPersonBtn').onclick = () => { deletePerson(p.id); toast('Person deleted'); };
+  mountIcons(editor);
+}
+
+// ============ CONTEXT MENU ============
+let activeMenu = null;
+function closeMenu() { if (activeMenu) { activeMenu.remove(); activeMenu = null; } }
+document.addEventListener('click', closeMenu);
+window.addEventListener('blur', closeMenu);
+
+function showContextMenu(sx, sy, items) {
+  closeMenu();
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  for (const it of items) {
+    if (it.sep) { const s = document.createElement('div'); s.className = 'ctx-sep'; menu.appendChild(s); continue; }
+    if (it.header) { const h = document.createElement('div'); h.className = 'ctx-header'; h.textContent = it.header; menu.appendChild(h); continue; }
+    const el = document.createElement('div');
+    el.className = 'ctx-item' + (it.danger ? ' danger' : '');
+    el.innerHTML = `<span class="ci" data-icon="${it.icon || ''}"></span><span>${escapeHtml(it.label)}</span>${it.shortcut ? `<span class="ck">${it.shortcut}</span>` : ''}`;
+    el.onclick = (ev) => { ev.stopPropagation(); closeMenu(); it.action && it.action(); };
+    menu.appendChild(el);
+  }
+  document.body.appendChild(menu);
+  mountIcons(menu);
+  const r = menu.getBoundingClientRect();
+  const x = Math.min(sx, window.innerWidth - r.width - 8);
+  const y = Math.min(sy, window.innerHeight - r.height - 8);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  activeMenu = menu;
+}
+
+function personMenu(p, sx, sy) {
+  showContextMenu(sx, sy, [
+    { header: p.name },
+    { icon: 'edit', label: 'Edit Details', action: () => { select(p.id); setTimeout(() => document.getElementById('f_name')?.focus(), 0); } },
+    { sep: true },
+    { icon: 'child', label: 'Add Child', action: () => {
+        const c = addPerson({ name: 'New Child', x: p.x + (Math.random()*60 - 30), y: p.y + 170 });
+        state.parentLinks.push({ parent: p.id, child: c.id });
+        const sp = spouseOf(p.id);
+        if (sp) state.parentLinks.push({ parent: sp, child: c.id });
+        render(); toast('Child added');
+      } },
+    { icon: 'parent', label: 'Add Parent', action: () => {
+        const par = addPerson({ name: 'New Parent', x: p.x, y: p.y - 170 });
+        state.parentLinks.push({ parent: par.id, child: p.id });
+        render(); toast('Parent added');
+      } },
+    { icon: 'heart', label: 'Add Spouse', action: () => {
+        const sp = addPerson({ name: 'New Spouse', x: p.x + nw(p) + 70, y: p.y });
+        state.spouseLinks.push({ a: p.id, b: sp.id });
+        render(); toast('Spouse added');
+      } },
+    { icon: 'users', label: 'Add Sibling', action: () => {
+        const sib = addPerson({ name: 'New Sibling', x: p.x + nw(p) + 70, y: p.y });
+        for (const l of state.parentLinks) if (l.child === p.id) state.parentLinks.push({ parent: l.parent, child: sib.id });
+        render(); toast('Sibling added');
+      } },
+    { sep: true },
+    { icon: 'link', label: 'Link as Parent of…', action: () => startLink('parent', p.id, 'Click the CHILD person') },
+    { icon: 'link', label: 'Link as Spouse of…', action: () => startLink('spouse', p.id, 'Click the SPOUSE person') },
+    { icon: 'scissors', label: 'Remove All Links', action: () => {
+        state.parentLinks = state.parentLinks.filter(l => l.parent !== p.id && l.child !== p.id);
+        state.spouseLinks = state.spouseLinks.filter(l => l.a !== p.id && l.b !== p.id);
+        render(); toast('Links removed');
+      } },
+    { sep: true },
+    { icon: 'maximize', label: 'Fit Width to Name', action: () => { fitWidthToName(p); render(); toast('Width fitted'); } },
+    { icon: 'target', label: 'Reset Width', action: () => { delete p.width; render(); toast('Width reset'); } },
+    { sep: true },
+    { icon: 'copy', label: 'Duplicate', action: () => { addPerson({ ...p, id: undefined, x: p.x + 30, y: p.y + 30 }); toast('Duplicated'); } },
+    { icon: 'trash', label: 'Delete', danger: true, shortcut: 'Del', action: () => { deletePerson(p.id); toast('Person deleted'); } },
+  ]);
+}
+
+function fitWidthToName(p) {
+  ctx.save();
+  ctx.font = '600 14px -apple-system, system-ui';
+  const nameW = ctx.measureText(p.name || '').width;
+  const datesW = ctx.measureText([p.birth, p.death].filter(Boolean).join(' – ')).width;
+  ctx.font = '500 11.5px -apple-system, system-ui';
+  ctx.restore();
+  const content = Math.max(nameW, datesW);
+  p.width = Math.round(Math.max(NW_MIN, Math.min(NW_MAX, content + 36)));
+}
+
+function canvasMenu(wx, wy, sx, sy) {
+  showContextMenu(sx, sy, [
+    { header: 'Canvas' },
+    { icon: 'plus', label: 'Add Person Here', action: () => addPerson({ x: wx - NODE_W/2, y: wy - NH_BASE/2 }) },
+    { icon: 'layout', label: 'Auto Layout', action: autoLayout },
+    { icon: 'maximize', label: 'Fit to View', action: fitView },
+    { icon: 'target', label: 'Reset Zoom', action: () => { view.scale = 1; render(); } },
+    { sep: true },
+    { icon: 'save', label: 'Save JSON', action: () => document.getElementById('saveJson').click() },
+    { icon: 'image', label: 'Export PNG', action: () => document.getElementById('savePng').click() },
+    { sep: true },
+    { icon: 'trash', label: 'Clear All', danger: true, action: () => { if (confirm('Clear the entire tree?')) { state = { people: [], parentLinks: [], spouseLinks: [], nextId: 1 }; selectedId = null; buildEditor(); render(); toast('Cleared'); } } },
+  ]);
+}
+
+// ============ LINKING ============
+const linkBanner = document.getElementById('linkBanner');
+const linkBannerText = document.getElementById('linkBannerText');
+document.getElementById('linkCancelBtn').onclick = () => cancelLink();
+
+function startLink(mode, fromId, msg) {
+  linkMode = mode; linkFirst = fromId;
+  canvas.classList.add('linking');
+  linkBannerText.textContent = msg || (mode === 'parent' ? 'Click the CHILD person' : 'Click the SPOUSE person');
+  linkBanner.classList.add('show');
+  render();
+}
+function cancelLink() {
+  linkMode = null; linkFirst = null;
+  canvas.classList.remove('linking');
+  linkBanner.classList.remove('show');
+  render();
+}
+
+function completeLink(targetId) {
+  if (!linkFirst || targetId === linkFirst) { cancelLink(); return; }
+  if (linkMode === 'parent') {
+    if (!linkExists('parent', linkFirst, targetId)) { state.parentLinks.push({ parent: linkFirst, child: targetId }); toast('Linked as parent → child', 'success'); }
+    else toast('Link already exists', 'error');
+  } else {
+    if (!linkExists('spouse', linkFirst, targetId)) { state.spouseLinks.push({ a: linkFirst, b: targetId }); toast('Linked as spouses', 'success'); }
+    else toast('Link already exists', 'error');
+  }
+  cancelLink();
+}
+
+// ============ AUTO LAYOUT ============
+function autoLayout() {
+  if (!state.people.length) return;
+  const gen = new Map();
+  const parents = new Map();
+  const children = new Map();
+  for (const p of state.people) { parents.set(p.id, []); children.set(p.id, []); }
+  for (const l of state.parentLinks) { parents.get(l.child)?.push(l.parent); children.get(l.parent)?.push(l.child); }
+
+  const roots = state.people.filter(p => parents.get(p.id).length === 0).map(p => p.id);
+  const queue = roots.map(id => ({ id, g: 0 }));
+  while (queue.length) {
+    const { id, g } = queue.shift();
+    if (gen.has(id) && gen.get(id) >= g) continue;
+    gen.set(id, g);
+    for (const c of children.get(id) || []) queue.push({ id: c, g: g + 1 });
+    const sp = spouseOf(id);
+    if (sp != null && !gen.has(sp)) { gen.set(sp, g); for (const c of children.get(sp) || []) queue.push({ id: c, g: g + 1 }); }
+  }
+  for (const p of state.people) if (!gen.has(p.id)) gen.set(p.id, 0);
+
+  const levels = new Map();
+  for (const [id, g] of gen) {
+    if (!levels.has(g)) levels.set(g, []);
+    levels.get(g).push(id);
+  }
+  const sortedGens = [...levels.keys()].sort((a, b) => a - b);
+  const hGap = 40, vGap = 70;
+  let y = 80;
+  for (const g of sortedGens) {
+    const row = levels.get(g);
+    const placed = new Set();
+    const ordered = [];
+    for (const id of row) {
+      if (placed.has(id)) continue;
+      ordered.push(id); placed.add(id);
+      const sp = spouseOf(id);
+      if (sp != null && row.includes(sp) && !placed.has(sp)) { ordered.push(sp); placed.add(sp); }
+    }
+    const rowH = ordered.reduce((m, id) => Math.max(m, nh(findPerson(id))), 0);
+    const totalW = ordered.reduce((s, id) => s + nw(findPerson(id)), 0) + (ordered.length - 1) * hGap;
+    let x = -totalW / 2;
+    for (const id of ordered) {
+      const p = findPerson(id);
+      p.x = x; p.y = y;
+      x += nw(p) + hGap;
+    }
+    y += rowH + vGap;
+  }
+  fitView();
+  toast('Auto-laid out');
+}
+
+function fitView() {
+  if (!state.people.length) { view = { x: 0, y: 0, scale: 1 }; render(); return; }
+  const pad = 80;
+  const minX = Math.min(...state.people.map(p => p.x)) - pad;
+  const minY = Math.min(...state.people.map(p => p.y)) - pad;
+  const maxX = Math.max(...state.people.map(p => p.x + nw(p))) + pad;
+  const maxY = Math.max(...state.people.map(p => p.y + nh(p))) + pad;
+  const w = maxX - minX, h = maxY - minY;
+  const sx = wrap.clientWidth / w, sy = wrap.clientHeight / h;
+  view.scale = Math.min(1.2, Math.min(sx, sy));
+  view.x = wrap.clientWidth / 2 - (minX + w / 2) * view.scale;
+  view.y = wrap.clientHeight / 2 - (minY + h / 2) * view.scale;
+  render();
+}
+
+// ============ INPUT ============
+let spaceDown = false;
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') { spaceDown = true; canvas.style.cursor = 'grab'; e.preventDefault(); }
+  if (e.key === 'Escape') { cancelLink(); closeMenu(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId != null) { deletePerson(selectedId); toast('Deleted'); }
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; canvas.style.cursor = ''; } });
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const w = screenToWorld(e.clientX, e.clientY);
+  const p = hitTest(w.x, w.y);
+  if (p) { select(p.id); personMenu(p, e.clientX, e.clientY); }
+  else { canvasMenu(w.x, w.y, e.clientX, e.clientY); }
+});
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 2) return;
+  closeMenu();
+  const w = screenToWorld(e.clientX, e.clientY);
+  const p = hitTest(w.x, w.y);
+
+  if (e.button === 1 || spaceDown || (!p && e.button === 0 && !linkMode)) {
+    panning = true; panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+    canvas.classList.add('grabbing');
+    if (!p) { select(null); }
+    return;
+  }
+
+  if (p && linkMode && linkFirst) { completeLink(p.id); return; }
+
+  if (p && (e.shiftKey || e.ctrlKey)) {
+    const mode = e.shiftKey ? 'parent' : 'spouse';
+    if (!linkFirst) { startLink(mode, p.id); select(p.id); return; }
+    completeLink(p.id); return;
+  }
+
+  if (p) {
+    select(p.id);
+    dragging = p;
+    dragOffset.x = w.x - p.x; dragOffset.y = w.y - p.y;
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (panning) {
+    view.x = e.clientX - panStart.x;
+    view.y = e.clientY - panStart.y;
+    render(); return;
+  }
+  const w = screenToWorld(e.clientX, e.clientY);
+  if (dragging) {
+    dragging.x = w.x - dragOffset.x;
+    dragging.y = w.y - dragOffset.y;
+    render(); return;
+  }
+  const p = hitTest(w.x, w.y);
+  const newHover = p ? p.id : null;
+  if (newHover !== hoveredId) { hoveredId = newHover; canvas.style.cursor = p ? 'pointer' : (linkMode ? 'crosshair' : ''); render(); }
+});
+
+canvas.addEventListener('mouseup', () => {
+  dragging = null;
+  panning = false;
+  canvas.classList.remove('grabbing');
+});
+
+canvas.addEventListener('dblclick', e => {
+  const w = screenToWorld(e.clientX, e.clientY);
+  if (!hitTest(w.x, w.y)) addPerson({ x: w.x - NODE_W/2, y: w.y - NH_BASE/2 });
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const newScale = Math.max(0.2, Math.min(3, view.scale * factor));
+  view.x = mx - (mx - view.x) * (newScale / view.scale);
+  view.y = my - (my - view.y) * (newScale / view.scale);
+  view.scale = newScale;
+  render();
+}, { passive: false });
+
+// ============ TOOLBAR ============
+document.getElementById('addBtn').onclick = () => addPerson();
+document.getElementById('autoLayoutBtn').onclick = autoLayout;
+document.getElementById('fitBtn').onclick = fitView;
+document.getElementById('zoomIn').onclick = () => zoomTo(view.scale * 1.2);
+document.getElementById('zoomOut').onclick = () => zoomTo(view.scale / 1.2);
+document.getElementById('zoomReset').onclick = () => { view = { x: 0, y: 0, scale: 1 }; render(); };
+function zoomTo(s) {
+  const cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2;
+  const ns = Math.max(0.2, Math.min(3, s));
+  view.x = cx - (cx - view.x) * (ns / view.scale);
+  view.y = cy - (cy - view.y) * (ns / view.scale);
+  view.scale = ns; render();
+}
+
+document.getElementById('clearBtn').onclick = () => {
+  if (state.people.length && !confirm('Clear the entire tree?')) return;
+  state = { people: [], parentLinks: [], spouseLinks: [], nextId: 1 };
+  selectedId = null; buildEditor(); render(); toast('Cleared');
+};
+
+document.getElementById('saveJson').onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  download(blob, 'family-tree.json');
+  toast('Saved JSON', 'success');
+};
+
+document.getElementById('loadJson').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(r.result);
+      if (!data.people) throw new Error('Invalid file');
+      state = Object.assign({ parentLinks: [], spouseLinks: [], nextId: 1 }, data);
+      state.nextId = Math.max(state.nextId || 1, ...state.people.map(p => p.id + 1));
+      selectedId = null; buildEditor(); fitView(); toast('Loaded', 'success');
+    } catch (err) { toast('Failed: ' + err.message, 'error'); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+});
+
+document.getElementById('savePng').onclick = () => {
+  if (!state.people.length) { toast('Nothing to export', 'error'); return; }
+  const pad = 60;
+  const minX = Math.min(...state.people.map(p => p.x)) - pad;
+  const minY = Math.min(...state.people.map(p => p.y)) - pad;
+  const maxX = Math.max(...state.people.map(p => p.x + nw(p))) + pad;
+  const maxY = Math.max(...state.people.map(p => p.y + nh(p))) + pad;
+  const w = maxX - minX, h = maxY - minY;
+  const scale = 2;
+  const off = document.createElement('canvas');
+  off.width = w * scale; off.height = h * scale;
+  const c = off.getContext('2d');
+  c.scale(scale, scale);
+  c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
+  // subtle dot grid
+  c.fillStyle = '#eef1f6';
+  for (let gx = Math.ceil(minX/28)*28; gx < maxX; gx += 28) {
+    for (let gy = Math.ceil(minY/28)*28; gy < maxY; gy += 28) {
+      c.fillRect(gx - minX, gy - minY, 1, 1);
+    }
+  }
+  c.translate(-minX, -minY);
+  drawInto(c);
+  off.toBlob(b => { download(b, 'family-tree.png'); toast('Exported PNG', 'success'); });
+};
+
+function drawInto(c) {
+  c.strokeStyle = '#ec4899'; c.lineWidth = 2; c.setLineDash([5, 4]);
+  for (const l of state.spouseLinks) {
+    const a = findPerson(l.a), b = findPerson(l.b); if (!a || !b) continue;
+    const x1 = a.x + nw(a)/2, y1 = a.y + nh(a)/2;
+    const x2 = b.x + nw(b)/2, y2 = b.y + nh(b)/2;
+    c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc((x1+x2)/2, (y1+y2)/2, 10, 0, Math.PI*2); c.fill();
+    c.strokeStyle = '#ec4899'; c.lineWidth = 1.5;
+    c.beginPath(); c.arc((x1+x2)/2, (y1+y2)/2, 10, 0, Math.PI*2); c.stroke();
+    c.fillStyle = '#ec4899'; c.font = '12px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('♥', (x1+x2)/2, (y1+y2)/2 + 1);
+    c.setLineDash([5, 4]); c.strokeStyle = '#ec4899'; c.lineWidth = 2;
+  }
+  c.setLineDash([]);
+  c.strokeStyle = '#94a3b8'; c.lineWidth = 1.8;
+  for (const l of state.parentLinks) {
+    const p = findPerson(l.parent), ch = findPerson(l.child); if (!p || !ch) continue;
+    const x1 = p.x + nw(p)/2, y1 = p.y + nh(p);
+    const x2 = ch.x + nw(ch)/2, y2 = ch.y;
+    c.beginPath();
+    if (Math.abs(x2 - x1) < 0.5) {
+      c.moveTo(x1, y1);
+      c.lineTo(x2, y2);
+    } else {
+      const my = (y1 + y2) / 2;
+      const dir = Math.sign(x2 - x1);
+      const r = Math.min(6, Math.abs(x2 - x1) / 2);
+      c.moveTo(x1, y1);
+      c.lineTo(x1, my - r);
+      c.quadraticCurveTo(x1, my, x1 + dir * r, my);
+      c.lineTo(x2 - dir * r, my);
+      c.quadraticCurveTo(x2, my, x2, my + r);
+      c.lineTo(x2, y2);
+    }
+    c.stroke();
+    c.fillStyle = '#94a3b8';
+    c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 - 4, y2 - 6); c.lineTo(x2 + 4, y2 - 6); c.closePath(); c.fill();
+  }
+  for (const p of state.people) {
+    const ph = nh(p);
+    const pw = nw(p);
+    const accent = colorFor(p.gender);
+    c.shadowColor = 'rgba(15, 23, 42, 0.10)'; c.shadowBlur = 8; c.shadowOffsetY = 4;
+    c.fillStyle = '#ffffff';
+    roundRect(c, p.x, p.y, pw, ph, CARD_R); c.fill();
+    c.shadowBlur = 0; c.shadowOffsetY = 0;
+    c.save();
+    roundRect(c, p.x, p.y, pw, ph, CARD_R); c.clip();
+    c.fillStyle = accent; c.fillRect(p.x, p.y, pw, 4);
+    c.restore();
+    c.lineWidth = 1.5; c.strokeStyle = '#94a3b8';
+    roundRect(c, p.x, p.y, pw, ph, CARD_R); c.stroke();
+    c.fillStyle = '#0f172a'; c.font = '600 14px -apple-system, system-ui'; c.textAlign = 'left'; c.textBaseline = 'top';
+    c.fillText(truncate(c, p.name, pw - 32), p.x + 16, p.y + 14);
+    const dates = [p.birth, p.death].filter(Boolean).join(' – ');
+    if (dates) { c.fillStyle = '#64748b'; c.font = '500 11.5px -apple-system, system-ui'; c.fillText(dates, p.x + 16, p.y + 36); }
+    if (p.notes) {
+      c.strokeStyle = '#eef0f6'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(p.x + 12, p.y + 62); c.lineTo(p.x + pw - 12, p.y + 62); c.stroke();
+      c.fillStyle = '#64748b'; c.font = '11.5px -apple-system, system-ui';
+      const lines = wrapLines(c, p.notes, pw - 28, 2);
+      lines.forEach((line, i) => c.fillText(line, p.x + 16, p.y + 72 + i * 15));
+    }
+  }
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+let toastTimer = null;
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = type; }, 2200);
+}
+
+function seed() {
+  const gp1 = addPerson({ name: 'Margaret Smith', birth: '1945', gender: 'female', x: -200, y: 0 });
+  const gp2 = addPerson({ name: 'Robert Smith', birth: '1942', death: '2018', gender: 'male', x: 0, y: 0 });
+  state.spouseLinks.push({ a: gp1.id, b: gp2.id });
+  const parent = addPerson({ name: 'John Smith', birth: '1970', gender: 'male', x: -100, y: 170 });
+  const inlaw = addPerson({ name: 'Sarah Lee', birth: '1972', gender: 'female', x: 100, y: 170 });
+  state.parentLinks.push({ parent: gp1.id, child: parent.id }, { parent: gp2.id, child: parent.id });
+  state.spouseLinks.push({ a: parent.id, b: inlaw.id });
+  const child1 = addPerson({ name: 'Emma Smith', birth: '2000', gender: 'female', x: -120, y: 340 });
+  const child2 = addPerson({ name: 'Liam Smith', birth: '2003', gender: 'male', x: 80, y: 340 });
+  state.parentLinks.push({ parent: parent.id, child: child1.id }, { parent: inlaw.id, child: child1.id });
+  state.parentLinks.push({ parent: parent.id, child: child2.id }, { parent: inlaw.id, child: child2.id });
+  selectedId = null;
+}
+
+const hadSaved = loadFromStorage();
+buildEditor();
+mountIcons();
+resizeCanvas();
+if (hadSaved) fitView();
+fitView();
+</script>
+</body>
+</html>
